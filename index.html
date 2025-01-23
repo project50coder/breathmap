@@ -66,31 +66,6 @@
         .search-bar button:hover {
             background-color: #e64a19;
         }
-        .search-dropdown {
-            position: absolute;
-            background-color: #333333;
-            color: #ffffff;
-            width: 100%;
-            top: 100%;
-            left: 0;
-            display: none;
-            z-index: 1001;
-        }
-        .search-dropdown.active {
-            display: block;
-        }
-        .search-dropdown ul {
-            list-style-type: none;
-            margin: 0;
-            padding: 0;
-        }
-        .search-dropdown li {
-            padding: 8px;
-            cursor: pointer;
-        }
-        .search-dropdown li:hover {
-            background-color: #444444;
-        }
         .about-button {
             position: absolute;
             bottom: 60px;
@@ -121,61 +96,39 @@
             font-size: 16px;
             z-index: 1000;
         }
-        .loader {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 18px;
-            display: none;
-            z-index: 1000;
-        }
         @media (max-width: 768px) {
             .search-bar {
-                width: 80%;
-                margin: 0 auto;
                 top: 10px;
                 right: 10px;
+                width: auto;
                 flex-direction: row;
                 gap: 10px;
+                justify-content: flex-end;
             }
             .search-bar input {
                 flex: 1;
                 height: 40px;
+                max-width: 200px;
             }
             .search-bar button {
                 flex: 0 0 auto;
                 width: 70px;
                 height: 40px;
             }
-            .about-button {
-                bottom: 60px;
-                right: 10px;
-            }
         }
     </style>
 </head>
 <body>
-    <div id="loader" class="loader">Loading...</div>
+    <div id="map"></div>
     <div class="search-bar">
         <input id="search-input" type="text" placeholder="Search...">
         <button id="search-button">Search</button>
-        <div id="search-dropdown" class="search-dropdown">
-            <ul id="search-history"></ul>
-        </div>
     </div>
-    <div id="map"></div>
     <div class="bottom-bar">BreathMap</div>
     <button class="about-button" onclick="location.href='about.html'">About</button>
     <script>
-        let map, heat, markersLayer, cache = new Map();
-        const loader = document.getElementById('loader');
-        const searchInput = document.getElementById('search-input');
-        const searchButton = document.getElementById('search-button');
-        const searchHistory = document.getElementById('search-history');
-        let recentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
-        let searchMarker = null; // Variable to track the current search marker
+        let map, heat, markersLayer;
+        const apiKey = 'b4e61d40c7efcf81d2b8bb699d3138da26603d1e'; // Replace with your AQI API token
 
         function initializeMap(center) {
             map = L.map('map', {
@@ -192,43 +145,38 @@
                 opacity: 0.9
             }).addTo(map);
 
-            // Initialize the heat layer
             heat = L.heatLayer([], {
                 radius: 60,
                 blur: 50,
-                opacity: 0.6,
+                maxZoom: 18,
                 gradient: {
-                    0.2: "#00e676",
-                    0.4: "#ffeb3b",
-                    0.6: "#ff9800",
-                    0.8: "#ff5722",
-                    1.0: "#d50000"
+                    0.2: '#00e676',
+                    0.4: '#ffeb3b',
+                    0.6: '#ff9800',
+                    0.8: '#ff5722',
+                    1.0: '#d50000'
                 }
             }).addTo(map);
 
             markersLayer = L.layerGroup().addTo(map);
         }
 
-        async function fetchData(apiUrl) {
-            if (cache.has(apiUrl)) return cache.get(apiUrl);
+        async function fetchAqiData() {
+            const url = `https://api.waqi.info/map/bounds/?latlng=-85,-180,85,180&token=${apiKey}`;
             try {
-                loader.style.display = 'block';
-                const response = await fetch(apiUrl);
+                const response = await fetch(url);
                 const data = await response.json();
-                cache.set(apiUrl, data);
                 return data;
             } catch (error) {
-                alert("Failed to fetch data. Please try again later.");
+                console.error('Failed to fetch AQI data', error);
                 return null;
-            } finally {
-                loader.style.display = 'none';
             }
         }
 
         async function updateMapData() {
-            const data = await fetchData('https://api.waqi.info/map/bounds/?latlng=-85,-180,85,180&token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e');
+            const data = await fetchAqiData();
             if (!data || !data.data) {
-                console.error("No data returned from AQI API");
+                console.error('No data returned from AQI API');
                 return;
             }
 
@@ -236,89 +184,35 @@
             markersLayer.clearLayers();
 
             data.data.forEach(station => {
-                if (station.lat && station.lon) {
-                    const aqi = parseInt(station.aqi);
-                    const isValidAqi = !isNaN(aqi) && aqi >= 0;
+                if (station.lat && station.lon && !isNaN(parseInt(station.aqi))) {
+                    heatPoints.push([station.lat, station.lon, station.aqi / 500]);
 
-                    // Add valid AQI data to the heatPoints array
-                    if (isValidAqi) {
-                        heatPoints.push([station.lat, station.lon, aqi / 500]); // Normalize AQI value
-                    }
-
-                    // Add marker for the station
                     const marker = L.circleMarker([station.lat, station.lon], {
                         radius: 6,
-                        fillColor: isValidAqi ? getAqiColor(aqi) : '#888888',
-                        color: isValidAqi ? "#ffffff" : "#666666",
+                        fillColor: getAqiColor(station.aqi),
+                        color: '#ffffff',
                         weight: 1,
                         opacity: 1,
-                        fillOpacity: isValidAqi ? 0.8 : 0.5
-                    }).bindPopup(`
-                        <strong>Station:</strong> ${station.station.name || 'N/A'}<br>
-                        <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
-                    `);
-
+                        fillOpacity: 0.8
+                    }).bindPopup(`<strong>Station:</strong> ${station.station.name}<br><strong>AQI:</strong> ${station.aqi}`);
                     markersLayer.addLayer(marker);
                 }
             });
 
-            // Update heatmap with valid points
-            if (heatPoints.length > 0) {
-                heat.setLatLngs(heatPoints);
-            } else {
-                console.warn("No valid heatmap points available");
-            }
+            heat.setLatLngs(heatPoints);
         }
-
-        function updateSearchHistory() {
-            searchHistory.innerHTML = recentSearches.map(query => `<li onclick="searchLocation('${query}')">${query}</li>`).join('');
-        }
-
-        async function searchLocation(query) {
-            const data = await fetchData(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json`);
-            if (!data || data.length === 0) {
-                alert("Location not found. Please try again.");
-                return;
-            }
-            const { lat, lon } = data[0];
-
-            // Remove the existing search marker if it exists
-            if (searchMarker) {
-                map.removeLayer(searchMarker);
-            }
-
-            // Add a new pin marker for the searched location
-            searchMarker = L.marker([lat, lon]).addTo(map)
-                .bindPopup(`<strong>${query}</strong>`)
-                .openPopup();
-
-            map.setView([lat, lon], 10);
-            if (!recentSearches.includes(query)) {
-                recentSearches.unshift(query);
-                if (recentSearches.length > 5) recentSearches.pop();
-                localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
-            }
-            updateSearchHistory();
-        }
-
-        searchInput.addEventListener('keypress', e => {
-            if (e.key === 'Enter') searchLocation(searchInput.value.trim());
-        });
-
-        searchButton.addEventListener('click', () => searchLocation(searchInput.value.trim()));
-
-        initializeMap([20.5937, 78.9629]); // Default center: India
-        setInterval(updateMapData, 60000);
-        updateMapData();
-        updateSearchHistory();
 
         function getAqiColor(aqi) {
-            if (aqi <= 50) return "#00e676";
-            if (aqi <= 100) return "#ffeb3b";
-            if (aqi <= 150) return "#ff9800";
-            if (aqi <= 200) return "#ff5722";
-            return "#d50000";
+            if (aqi <= 50) return '#00e676';
+            if (aqi <= 100) return '#ffeb3b';
+            if (aqi <= 150) return '#ff9800';
+            if (aqi <= 200) return '#ff5722';
+            return '#d50000';
         }
+
+        initializeMap([20.5937, 78.9629]); // Default to India
+        updateMapData();
+        setInterval(updateMapData, 60000);
     </script>
 </body>
 </html>
