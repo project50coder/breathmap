@@ -9,6 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/leaflet.heat/dist/leaflet-heat.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
     <style>
         body {
             margin: 0;
@@ -103,6 +106,18 @@
         .about-button:hover {
             background-color: #333333;
         }
+        .marker-cluster-small {
+            background-color: #00e676;
+            color: white;
+        }
+        .marker-cluster-medium {
+            background-color: #ff9800;
+            color: white;
+        }
+        .marker-cluster-large {
+            background-color: #d50000;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -121,7 +136,6 @@
         const loader = document.getElementById('loader');
         const searchInput = document.getElementById('search-input');
         const searchButton = document.getElementById('search-button');
-        let recentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
         let searchMarker = null;
 
         function initializeMap(center) {
@@ -152,7 +166,20 @@
                 }
             }).addTo(map);
 
-            markersLayer = L.layerGroup().addTo(map);
+            markersLayer = L.markerClusterGroup({
+                iconCreateFunction: function (cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 100) size = 'large';
+                    else if (count > 50) size = 'medium';
+
+                    return L.divIcon({
+                        html: `<div><span>${count}</span></div>`,
+                        className: `marker-cluster marker-cluster-${size}`,
+                        iconSize: L.point(40, 40)
+                    });
+                }
+            }).addTo(map);
         }
 
         async function fetchData(apiUrl) {
@@ -172,45 +199,59 @@
         }
 
         async function updateMapData() {
-            const data = await fetchData('https://api.waqi.info/map/bounds/?latlng=-85,-180,85,180&token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e');
-            if (!data || !data.data) {
-                console.error("No data returned from AQI API");
-                return;
-            }
+            const boundsList = [
+                [-85, -180, 0, 0],
+                [-85, 0, 0, 180],
+                [0, -180, 85, 0],
+                [0, 0, 85, 180],
+            ];
 
             const heatPoints = [];
             markersLayer.clearLayers();
 
-            data.data.forEach(station => {
-                if (station.lat && station.lon) {
-                    const aqi = parseInt(station.aqi);
-                    const isValidAqi = !isNaN(aqi) && aqi >= 0;
+            for (const bounds of boundsList) {
+                const [south, west, north, east] = bounds;
+                const apiUrl = `https://api.waqi.info/map/bounds/?latlng=${south},${west},${north},${east}&token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`;
+                const data = await fetchData(apiUrl);
 
-                    if (isValidAqi) {
-                        heatPoints.push([station.lat, station.lon, aqi / 500]);
-                    }
-
-                    const marker = L.circleMarker([station.lat, station.lon], {
-                        radius: 6,
-                        fillColor: isValidAqi ? getAqiColor(aqi) : '#888888',
-                        color: isValidAqi ? "#ffffff" : "#666666",
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: isValidAqi ? 0.8 : 0.5
-                    }).bindPopup(`
-                        <strong>Station:</strong> ${station.station.name || 'N/A'}<br>
-                        <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
-                    `);
-
-                    markersLayer.addLayer(marker);
+                if (!data || !data.data) {
+                    console.error(`No data returned for bounds: ${bounds}`);
+                    continue;
                 }
-            });
+
+                data.data.forEach(station => {
+                    if (station.lat && station.lon) {
+                        const aqi = parseInt(station.aqi);
+                        const isValidAqi = !isNaN(aqi) && aqi >= 0;
+
+                        if (isValidAqi) {
+                            heatPoints.push([station.lat, station.lon, aqi / 500]);
+                        }
+
+                        const marker = L.circleMarker([station.lat, station.lon], {
+                            radius: 6,
+                            fillColor: isValidAqi ? getAqiColor(aqi) : '#888888',
+                            color: isValidAqi ? "#ffffff" : "#666666",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: isValidAqi ? 0.8 : 0.5
+                        }).bindPopup(`
+                            <strong>Station:</strong> ${station.station.name || 'N/A'}<br>
+                            <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
+                        `);
+
+                        markersLayer.addLayer(marker);
+                    }
+                });
+            }
 
             if (heatPoints.length > 0) {
                 heat.setLatLngs(heatPoints);
             } else {
                 console.warn("No valid heatmap points available");
             }
+
+            map.addLayer(markersLayer);
         }
 
         async function searchLocation(query) {
@@ -224,38 +265,24 @@
             const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
             const locationName = reverseData?.display_name || query;
 
-            const aqiData = await fetchData(`https://api.waqi.info/map/bounds/?latlng=${lat - 1},${lon - 1},${lat + 1},${lon + 1}&token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
-            const nearbyStations = aqiData?.data || [];
-            const validAqiValues = nearbyStations
-                .filter(station => !isNaN(parseInt(station.aqi)) && station.aqi >= 0)
-                .map(station => parseInt(station.aqi));
-            const averageAqi = validAqiValues.length > 0
-                ? (validAqiValues.reduce((sum, val) => sum + val, 0) / validAqiValues.length).toFixed(1)
-                : 'N/A';
+            const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lon}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
+            const aqi = parseInt(aqiData?.data?.aqi);
+            const isValidAqi = !isNaN(aqi) && aqi >= 0;
 
             if (searchMarker) {
                 map.removeLayer(searchMarker);
             }
 
-            searchMarker = L.marker([lat, lon]).addTo(map)
+            searchMarker = L.marker([lat, lon])
                 .bindPopup(`
                     <strong>Location:</strong> ${locationName}<br>
-                    <strong>Average AQI:</strong> ${averageAqi}
+                    <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
                 `)
-                .openPopup();
+                .addTo(map);
 
             map.setView([lat, lon], 10);
+            searchMarker.openPopup();
         }
-
-        searchInput.addEventListener('keypress', e => {
-            if (e.key === 'Enter') searchLocation(searchInput.value.trim());
-        });
-
-        searchButton.addEventListener('click', () => searchLocation(searchInput.value.trim()));
-
-        initializeMap([20.5937, 78.9629]);
-        setInterval(updateMapData, 60000);
-        updateMapData();
 
         function getAqiColor(aqi) {
             if (aqi <= 50) return "#00e676";
@@ -264,7 +291,16 @@
             if (aqi <= 200) return "#ff5722";
             return "#d50000";
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeMap([20, 0]);
+            updateMapData();
+
+            searchButton.addEventListener('click', () => {
+                const query = searchInput.value.trim();
+                if (query) searchLocation(query);
+            });
+        });
     </script>
 </body>
 </html>
-
