@@ -143,7 +143,7 @@
 <body>
     <div id="loader" class="loader">Loading...</div>
     <div class="search-bar">
-        <input id="search-input" type="text" placeholder="Search city/area...">
+        <input id="search-input" type="text" placeholder="Search...">
         <button id="search-button">Search</button>
         <div id="search-dropdown" class="search-dropdown">
             <ul id="search-history"></ul>
@@ -159,6 +159,7 @@
         const searchButton = document.getElementById('search-button');
         const searchHistory = document.getElementById('search-history');
         let recentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+        let searchMarker = null; // Variable to track the current search marker
 
         function initializeMap(center) {
             map = L.map('map', {
@@ -265,8 +266,13 @@
             }
             const { lat, lon } = data[0];
 
-            // Add a pin marker for the searched location
-            L.marker([lat, lon]).addTo(map)
+            // Remove the existing search marker if it exists
+            if (searchMarker) {
+                map.removeLayer(searchMarker);
+            }
+
+            // Add a new pin marker for the searched location
+            searchMarker = L.marker([lat, lon]).addTo(map)
                 .bindPopup(`<strong>${query}</strong>`)
                 .openPopup();
 
