@@ -74,7 +74,8 @@
             background-color: #1e1e1e;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            padding: 0 10px;
             border-top: 1px solid #444444;
             color: #ffffff;
             font-size: 16px;
@@ -90,6 +91,18 @@
             display: none;
             z-index: 1000;
         }
+        .about-button {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 5px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .about-button:hover {
+            background-color: #333333;
+        }
     </style>
 </head>
 <body>
@@ -99,7 +112,10 @@
         <button id="search-button">Search</button>
     </div>
     <div id="map"></div>
-    <div class="bottom-bar">BreathMap</div>
+    <div class="bottom-bar">
+        <span>BreathMap</span>
+        <button class="about-button" onclick="location.href='about.html'">About</button>
+    </div>
     <script>
         let map, heat, markersLayer, cache = new Map();
         const loader = document.getElementById('loader');
@@ -251,3 +267,4 @@
     </script>
 </body>
 </html>
+
