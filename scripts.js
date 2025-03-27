@@ -4,7 +4,9 @@ const searchInput = document.getElementById('search-input');
 const searchButton = document.getElementById('search-button');
 const legendCard = document.getElementById('legend-card');
 const toggleLegendButton = document.getElementById('toggle-legend');
+const locationButton = document.getElementById('location-button');
 let searchMarker = null;
+let userLocationMarker = null;
 
 function initializeMap(center) {
     map = L.map('map', {
@@ -161,6 +163,63 @@ function getAqiColor(aqi) {
     return "#d50000";
 }
 
+async function locateUser() {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+    }
+
+    loader.style.display = 'block';
+    
+    try {
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        });
+
+        const { latitude: lat, longitude: lng } = position.coords;
+        
+        // Remove previous user location marker if exists
+        if (userLocationMarker) {
+            map.removeLayer(userLocationMarker);
+        }
+
+        // Get location name
+        const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const locationName = reverseData?.display_name || "Your location";
+
+        // Get AQI data
+        const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lng}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
+        const aqi = parseInt(aqiData?.data?.aqi);
+        const isValidAqi = !isNaN(aqi) && aqi >= 0;
+
+        // Create marker for user location
+        userLocationMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+                className: 'user-location-icon',
+                html: '<div style="background-color: #4285F4; border-radius: 50%; width: 16px; height: 16px; border: 2px solid white;"></div>',
+                iconSize: [20, 20]
+            })
+        }).bindPopup(`
+            <strong>Your Location:</strong> ${locationName}<br>
+            <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
+        `).addTo(map);
+
+        // Center map on user location
+        map.setView([lat, lng], 12);
+        userLocationMarker.openPopup();
+
+    } catch (error) {
+        console.error("Error getting location:", error);
+        alert("Could not get your location. Please make sure location services are enabled and try again.");
+    } finally {
+        loader.style.display = 'none';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeMap([20, 0]);
     updateMapData();
@@ -184,4 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (query) searchLocation(query);
         }
     });
+
+    // Add click handler for location button
+    locationButton.addEventListener('click', locateUser);
 });
