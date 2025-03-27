@@ -1,5 +1,5 @@
  # BreathMap - Real-time Air Quality Monitoring
-<div align="right">
+<div align="left">
   <img src="banner.png" width="700">
 </div>
 
