@@ -5,35 +5,255 @@
     <link rel="icon" type="image" href="favicon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BreathMap : Interactive AQI Map</title>
-    
-    <!-- External CSS Libraries -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat/dist/leaflet-heat.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
-    
-    <!-- Custom Stylesheet -->
-    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Roboto Mono', monospace;
+        }
+        #map {
+            height: calc(100vh - 40px);
+            width: 100vw;
+        }
+        .leaflet-container {
+            background: #1e1e1e;
+            color: #cccccc;
+        }
+        .leaflet-popup-content-wrapper {
+            background-color: #2c2c2c;
+            color: #ffffff;
+            border-radius: 4px;
+            border: 1px solid #444444;
+        }
+        .leaflet-popup-tip {
+            background-color: #2c2c2c;
+        }
+        .leaflet-control-attribution {
+            display: none !important;
+        }
+        .leaflet-control-zoom {
+            display: none !important;
+        }
+        .search-bar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            width: auto;
+        }
+        .search-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .search-bar input {
+            padding: 6px 8px;
+            border-radius: 5px;
+            border: 1px solid #555555;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            width: 150px;
+            font-size: 12px;
+        }
+        .search-bar button {
+            padding: 6px 10px;
+            background-color: #ff5722;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .search-bar button:hover {
+            background-color: #e64a19;
+        }
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background-color: #1e1e1e;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            border-top: 1px solid #444444;
+            color: #ffffff;
+            font-size: 16px;
+            z-index: 1000;
+        }
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            display: none;
+            z-index: 1000;
+        }
+        .about-button, .legend-button {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 5px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .about-button:hover, .legend-button:hover {
+            background-color: #333333;
+        }
+        .marker-cluster-small {
+            background-color: #00e676;
+            color: white;
+        }
+        .marker-cluster-medium {
+            background-color: #ff9800;
+            color: white;
+        }
+        .marker-cluster-large {
+            background-color: #d50000;
+            color: white;
+        }
+        #legend-card {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: #2c2c2c;
+            border-radius: 8px;
+            padding: 12px 15px;
+            z-index: 1000;
+            min-width: 200px;
+            max-width: 400px;
+            display: none;
+            border: 1px solid #444444;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .legend-content {
+            width: max-content;
+            max-width: 100%;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .legend-item span {
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
+        }
+        #legend-card h3 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            color: #ffffff;
+            border-bottom: 1px solid #444;
+            padding-bottom: 6px;
+            width: 100%;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo {
+            height: 32px;
+            width: 32px;
+        }
+        .location-button {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            z-index: 1000;
+            width: 40px;
+            height: 40px;
+            background-color: #ff5722;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .location-button:hover {
+            background-color: #e64a19;
+        }
+        .location-button svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        @media (max-width: 768px) {
+            #legend-card {
+                top: 60px;
+                left: 10px;
+                right: 10px;
+                width: calc(100% - 20px);
+                max-width: none;
+            }
+            .legend-content {
+                width: 100%;
+            }
+            .legend-item {
+                white-space: normal;
+            }
+            .legend-item span {
+                white-space: normal;
+            }
+            .search-bar {
+                width: calc(100% - 20px);
+                right: 10px;
+            }
+            .search-container {
+                width: 100%;
+            }
+            .search-bar input {
+                width: 100%;
+            }
+            .location-button {
+                bottom: 50px;
+                right: 10px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div id="loader" class="loader">Loading...</div>
-    
     <div class="search-bar">
         <div class="search-container">
             <input id="search-input" type="text" placeholder="Search location">
             <button id="search-button">Go</button>
         </div>
     </div>
-    
     <button id="location-button" class="location-button" title="Find my location">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
         </svg>
     </button>
-    
     <div id="map"></div>
-    
     <div id="legend-card">
         <div class="legend-content">
             <h3>AQI Levels Legend</h3>
@@ -59,7 +279,6 @@
             </div>
         </div>
     </div>
-    
     <div class="bottom-bar">
         <div class="logo-container">
             <img src="favicon.png" class="logo" alt="BreathMap Logo">
@@ -70,13 +289,256 @@
             <button class="about-button" onclick="location.href='about.html'">About</button>
         </div>
     </div>
+    <script>
+        let map, heat, markersLayer, cache = new Map();
+        const loader = document.getElementById('loader');
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const legendCard = document.getElementById('legend-card');
+        const toggleLegendButton = document.getElementById('toggle-legend');
+        const locationButton = document.getElementById('location-button');
+        let searchMarker = null;
+        let userLocationMarker = null;
 
-    <!-- External JavaScript Libraries -->
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat/dist/leaflet-heat.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-    
-    <!-- Custom JavaScript -->
-    <script src="script.js"></script>
+        function initializeMap(center) {
+            map = L.map('map', {
+                preferCanvas: true,
+                maxBounds: [[-90, -180], [90, 180]],
+                maxZoom: 18,
+                minZoom: 2,
+                zoomControl: false
+            }).setView(center, 5);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://carto.com/">Carto</a>',
+                subdomains: 'abcd',
+                maxZoom: 19,
+                opacity: 0.9
+            }).addTo(map);
+
+            heat = L.heatLayer([], {
+                radius: 60,
+                blur: 50,
+                opacity: 0.6,
+                gradient: {
+                    0.2: "#00e676",
+                    0.4: "#ffeb3b",
+                    0.6: "#ff9800",
+                    0.8: "#ff5722",
+                    1.0: "#d50000"
+                }
+            }).addTo(map);
+
+            markersLayer = L.markerClusterGroup({
+                iconCreateFunction: function (cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 100) size = 'large';
+                    else if (count > 50) size = 'medium';
+
+                    return L.divIcon({
+                        html: `<div><span>${count}</span></div>`,
+                        className: `marker-cluster marker-cluster-${size}`,
+                        iconSize: L.point(40, 40)
+                    });
+                }
+            }).addTo(map);
+        }
+
+        async function fetchData(apiUrl) {
+            if (cache.has(apiUrl)) return cache.get(apiUrl);
+            try {
+                loader.style.display = 'block';
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                cache.set(apiUrl, data);
+                return data;
+            } catch (error) {
+                alert("Failed to fetch data. Please try again later.");
+                return null;
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        async function updateMapData() {
+            const boundsList = [
+                [-85, -180, 0, 0],
+                [-85, 0, 0, 180],
+                [0, -180, 85, 0],
+                [0, 0, 85, 180],
+            ];
+
+            const heatPoints = [];
+            markersLayer.clearLayers();
+
+            for (const bounds of boundsList) {
+                const [south, west, north, east] = bounds;
+                const apiUrl = `https://api.waqi.info/map/bounds/?latlng=${south},${west},${north},${east}&token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`;
+                const data = await fetchData(apiUrl);
+
+                if (!data || !data.data) {
+                    console.error(`No data returned for bounds: ${bounds}`);
+                    continue;
+                }
+
+                data.data.forEach(station => {
+                    if (station.lat && station.lon) {
+                        const aqi = parseInt(station.aqi);
+                        const isValidAqi = !isNaN(aqi) && aqi >= 0;
+
+                        if (isValidAqi) {
+                            heatPoints.push([station.lat, station.lon, aqi / 500]);
+                        }
+
+                        const marker = L.circleMarker([station.lat, station.lon], {
+                            radius: 6,
+                            fillColor: isValidAqi ? getAqiColor(aqi) : '#888888',
+                            color: isValidAqi ? "#ffffff" : "#666666",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: isValidAqi ? 0.8 : 0.5
+                        }).bindPopup(`
+                            <strong>Station:</strong> ${station.station.name || 'N/A'}<br>
+                            <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
+                        `);
+
+                        markersLayer.addLayer(marker);
+                    }
+                });
+            }
+
+            if (heatPoints.length > 0) {
+                heat.setLatLngs(heatPoints);
+            } else {
+                console.warn("No valid heatmap points available");
+            }
+
+            map.addLayer(markersLayer);
+        }
+
+        async function searchLocation(query) {
+            const geocodeData = await fetchData(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json`);
+            if (!geocodeData || geocodeData.length === 0) {
+                alert("Location not found. Please try again.");
+                return;
+            }
+
+            const { lat, lon } = geocodeData[0];
+            const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+            const locationName = reverseData?.display_name || query;
+
+            const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lon}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
+            const aqi = parseInt(aqiData?.data?.aqi);
+            const isValidAqi = !isNaN(aqi) && aqi >= 0;
+
+            if (searchMarker) {
+                map.removeLayer(searchMarker);
+            }
+
+            searchMarker = L.marker([lat, lon])
+                .bindPopup(`
+                    <strong>Location:</strong> ${locationName}<br>
+                    <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
+                `)
+                .addTo(map);
+
+            map.setView([lat, lon], 10);
+            searchMarker.openPopup();
+        }
+
+        function getAqiColor(aqi) {
+            if (aqi <= 50) return "#00e676";
+            if (aqi <= 100) return "#ffeb3b";
+            if (aqi <= 150) return "#ff9800";
+            if (aqi <= 200) return "#ff5722";
+            return "#d50000";
+        }
+
+        async function locateUser() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser");
+                return;
+            }
+
+            loader.style.display = 'block';
+            
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                });
+
+                const { latitude: lat, longitude: lng } = position.coords;
+                
+                // Remove previous user location marker if exists
+                if (userLocationMarker) {
+                    map.removeLayer(userLocationMarker);
+                }
+
+                // Get location name
+                const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                const locationName = reverseData?.display_name || "Your location";
+
+                // Get AQI data
+                const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lng}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
+                const aqi = parseInt(aqiData?.data?.aqi);
+                const isValidAqi = !isNaN(aqi) && aqi >= 0;
+
+                // Create marker for user location
+                userLocationMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'user-location-icon',
+                        html: '<div style="background-color: #4285F4; border-radius: 50%; width: 16px; height: 16px; border: 2px solid white;"></div>',
+                        iconSize: [20, 20]
+                    })
+                }).bindPopup(`
+                    <strong>Your Location:</strong> ${locationName}<br>
+                    <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
+                `).addTo(map);
+
+                // Center map on user location
+                map.setView([lat, lng], 12);
+                userLocationMarker.openPopup();
+
+            } catch (error) {
+                console.error("Error getting location:", error);
+                alert("Could not get your location. Please make sure location services are enabled and try again.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeMap([20, 0]);
+            updateMapData();
+
+            // Initialize legend as closed
+            legendCard.style.display = 'none';
+
+            // Toggle legend visibility
+            toggleLegendButton.addEventListener('click', () => {
+                legendCard.style.display = legendCard.style.display === 'none' ? 'block' : 'none';
+            });
+
+            searchButton.addEventListener('click', () => {
+                const query = searchInput.value.trim();
+                if (query) searchLocation(query);
+            });
+
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const query = searchInput.value.trim();
+                    if (query) searchLocation(query);
+                }
+            });
+
+            // Add click handler for location button
+            locationButton.addEventListener('click', locateUser);
+        });
+    </script>
 </body>
 </html>
