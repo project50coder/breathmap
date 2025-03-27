@@ -212,4 +212,40 @@ async function locateUser() {
         }).bindPopup(`
             <strong>Your Location:</strong> ${locationName}<br>
             <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
-        `).addTo(map
+        `).addTo(map);
+
+        map.setView([lat, lng], 12);
+        userLocationMarker.openPopup();
+
+    } catch (error) {
+        console.error("Error getting location:", error);
+        alert("Could not get your location. Please make sure location services are enabled and try again.");
+    } finally {
+        loader.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeMap([20, 0]);
+    updateMapData();
+
+    legendCard.style.display = 'none';
+
+    toggleLegendButton.addEventListener('click', () => {
+        legendCard.style.display = legendCard.style.display === 'none' ? 'block' : 'none';
+    });
+
+    searchButton.addEventListener('click', () => {
+        const query = searchInput.value.trim();
+        if (query) searchLocation(query);
+    });
+
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) searchLocation(query);
+        }
+    });
+
+    locationButton.addEventListener('click', locateUser);
+});
