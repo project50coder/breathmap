@@ -408,14 +408,17 @@
             return "#d50000";
         }
 
-        // Add legend toggle functionality
-        toggleLegendButton.addEventListener('click', () => {
-            legendCard.style.display = legendCard.style.display === 'none' ? 'block' : 'none';
-        });
-
         document.addEventListener('DOMContentLoaded', () => {
             initializeMap([20, 0]);
             updateMapData();
+
+            // Initialize legend as closed
+            legendCard.style.display = 'none';
+
+            // Toggle legend visibility
+            toggleLegendButton.addEventListener('click', () => {
+                legendCard.style.display = legendCard.style.display === 'none' ? 'block' : 'none';
+            });
 
             searchButton.addEventListener('click', () => {
                 const query = searchInput.value.trim();
