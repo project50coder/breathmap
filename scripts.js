@@ -24,19 +24,6 @@ function initializeMap(center) {
         opacity: 0.9
     }).addTo(map);
 
-    heat = L.heatLayer([], {
-        radius: 60,
-        blur: 50,
-        opacity: 0.6,
-        gradient: {
-            0.2: "#00e676",
-            0.4: "#ffeb3b",
-            0.6: "#ff9800",
-            0.8: "#ff5722",
-            1.0: "#d50000"
-        }
-    }).addTo(map);
-
     markersLayer = L.markerClusterGroup({
         iconCreateFunction: function (cluster) {
             const count = cluster.getChildCount();
@@ -50,7 +37,23 @@ function initializeMap(center) {
                 iconSize: L.point(40, 40)
             });
         }
-    }).addTo(map);
+    });
+
+    heat = L.heatLayer([], {
+        radius: 60,
+        blur: 50,
+        opacity: 0.6,
+        gradient: {
+            0.2: "#00e676",
+            0.4: "#ffeb3b",
+            0.6: "#ff9800",
+            0.8: "#ff5722",
+            1.0: "#d50000"
+        }
+    });
+
+    map.addLayer(heat);
+    map.addLayer(markersLayer);
 }
 
 async function fetchData(apiUrl) {
@@ -58,10 +61,12 @@ async function fetchData(apiUrl) {
     try {
         loader.style.display = 'block';
         const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         cache.set(apiUrl, data);
         return data;
     } catch (error) {
+        console.error("Error fetching data:", error);
         alert("Failed to fetch data. Please try again later.");
         return null;
     } finally {
@@ -121,38 +126,43 @@ async function updateMapData() {
     } else {
         console.warn("No valid heatmap points available");
     }
-
-    map.addLayer(markersLayer);
 }
 
 async function searchLocation(query) {
-    const geocodeData = await fetchData(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json`);
-    if (!geocodeData || geocodeData.length === 0) {
-        alert("Location not found. Please try again.");
-        return;
+    if (!query) return;
+    
+    try {
+        const geocodeData = await fetchData(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json`);
+        if (!geocodeData || geocodeData.length === 0) {
+            alert("Location not found. Please try again.");
+            return;
+        }
+
+        const { lat, lon } = geocodeData[0];
+        const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const locationName = reverseData?.display_name || query;
+
+        const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lon}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
+        const aqi = parseInt(aqiData?.data?.aqi);
+        const isValidAqi = !isNaN(aqi) && aqi >= 0;
+
+        if (searchMarker) {
+            map.removeLayer(searchMarker);
+        }
+
+        searchMarker = L.marker([lat, lon])
+            .bindPopup(`
+                <strong>Location:</strong> ${locationName}<br>
+                <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
+            `)
+            .addTo(map);
+
+        map.setView([lat, lon], 12);
+        searchMarker.openPopup();
+    } catch (error) {
+        console.error("Error searching location:", error);
+        alert("An error occurred while searching. Please try again.");
     }
-
-    const { lat, lon } = geocodeData[0];
-    const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-    const locationName = reverseData?.display_name || query;
-
-    const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lon}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
-    const aqi = parseInt(aqiData?.data?.aqi);
-    const isValidAqi = !isNaN(aqi) && aqi >= 0;
-
-    if (searchMarker) {
-        map.removeLayer(searchMarker);
-    }
-
-    searchMarker = L.marker([lat, lon])
-        .bindPopup(`
-            <strong>Location:</strong> ${locationName}<br>
-            <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
-        `)
-        .addTo(map);
-
-    map.setView([lat, lon], 10);
-    searchMarker.openPopup();
 }
 
 function getAqiColor(aqi) {
@@ -182,21 +192,17 @@ async function locateUser() {
 
         const { latitude: lat, longitude: lng } = position.coords;
         
-        // Remove previous user location marker if exists
         if (userLocationMarker) {
             map.removeLayer(userLocationMarker);
         }
 
-        // Get location name
         const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
         const locationName = reverseData?.display_name || "Your location";
 
-        // Get AQI data
         const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lng}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
         const aqi = parseInt(aqiData?.data?.aqi);
         const isValidAqi = !isNaN(aqi) && aqi >= 0;
 
-        // Create marker for user location
         userLocationMarker = L.marker([lat, lng], {
             icon: L.divIcon({
                 className: 'user-location-icon',
@@ -206,44 +212,4 @@ async function locateUser() {
         }).bindPopup(`
             <strong>Your Location:</strong> ${locationName}<br>
             <strong>AQI:</strong> ${isValidAqi ? aqi : 'N/A'}
-        `).addTo(map);
-
-        // Center map on user location
-        map.setView([lat, lng], 12);
-        userLocationMarker.openPopup();
-
-    } catch (error) {
-        console.error("Error getting location:", error);
-        alert("Could not get your location. Please make sure location services are enabled and try again.");
-    } finally {
-        loader.style.display = 'none';
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    initializeMap([20, 0]);
-    updateMapData();
-
-    // Initialize legend as closed
-    legendCard.style.display = 'none';
-
-    // Toggle legend visibility
-    toggleLegendButton.addEventListener('click', () => {
-        legendCard.style.display = legendCard.style.display === 'none' ? 'block' : 'none';
-    });
-
-    searchButton.addEventListener('click', () => {
-        const query = searchInput.value.trim();
-        if (query) searchLocation(query);
-    });
-
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            const query = searchInput.value.trim();
-            if (query) searchLocation(query);
-        }
-    });
-
-    // Add click handler for location button
-    locationButton.addEventListener('click', locateUser);
-});
+        `).addTo(map
