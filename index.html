@@ -102,7 +102,7 @@
             display: none;
             z-index: 1000;
         }
-        .about-button, .legend-button {
+        .about-button, .legend-button, .notifications-button {
             background-color: #000000;
             color: #ffffff;
             padding: 5px 10px;
@@ -111,7 +111,7 @@
             border-radius: 3px;
             cursor: pointer;
         }
-        .about-button:hover, .legend-button:hover {
+        .about-button:hover, .legend-button:hover, .notifications-button:hover {
             background-color: #333333;
         }
         .marker-cluster-small {
@@ -141,11 +141,25 @@
             font-size: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        .legend-content {
+        #notifications-card {
+            position: absolute;
+            top: 50px; /* Changed from 10px to 50px to position below search bar */
+            right: 10px;
+            background-color: #2c2c2c;
+            border-radius: 8px;
+            padding: 12px 15px;
+            z-index: 1000;
+            width: 300px;
+            display: none;
+            border: 1px solid #444444;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .legend-content, .notifications-content {
             width: max-content;
             max-width: 100%;
         }
-        .legend-item {
+        .legend-item, .notification-item {
             display: flex;
             align-items: center;
             margin-bottom: 8px;
@@ -158,12 +172,12 @@
             border-radius: 3px;
             flex-shrink: 0;
         }
-        .legend-item span {
+        .legend-item span, .notification-item span {
             white-space: nowrap;
             overflow: visible;
             text-overflow: clip;
         }
-        #legend-card h3 {
+        #legend-card h3, #notifications-card h3 {
             font-size: 14px;
             margin-bottom: 12px;
             font-weight: bold;
@@ -172,6 +186,51 @@
             border-bottom: 1px solid #444;
             padding-bottom: 6px;
             width: 100%;
+        }
+        .notification-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .notification-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .notification-form input, .notification-form select {
+            padding: 6px 8px;
+            border-radius: 5px;
+            border: 1px solid #555555;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            width: 100%;
+            font-size: 12px;
+        }
+        .notification-form button {
+            padding: 6px 10px;
+            background-color: #ff5722;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .notification-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .notification-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #444;
+        }
+        .delete-notification {
+            color: #ff5722;
+            cursor: pointer;
+            font-weight: bold;
         }
         .logo-container {
             display: flex;
@@ -207,20 +266,20 @@
             fill: white;
         }
         @media (max-width: 768px) {
-            #legend-card {
+            #legend-card, #notifications-card {
                 top: 60px;
                 left: 10px;
                 right: 10px;
                 width: calc(100% - 20px);
                 max-width: none;
             }
-            .legend-content {
+            .legend-content, .notifications-content {
                 width: 100%;
             }
-            .legend-item {
+            .legend-item, .notification-item {
                 white-space: normal;
             }
-            .legend-item span {
+            .legend-item span, .notification-item span {
                 white-space: normal;
             }
             .search-bar {
@@ -279,6 +338,28 @@
             </div>
         </div>
     </div>
+    <div id="notifications-card">
+        <div class="notifications-content">
+            <h3>AQI Notifications</h3>
+            <div class="notification-form">
+                <input type="text" id="notification-name" placeholder="Location name">
+                <input type="number" id="notification-lat" placeholder="Latitude" step="any">
+                <input type="number" id="notification-lng" placeholder="Longitude" step="any">
+                <select id="notification-threshold">
+                    <option value="50">Good (0-50)</option>
+                    <option value="100">Moderate (51-100)</option>
+                    <option value="150">Unhealthy for Sensitive Groups (101-150)</option>
+                    <option value="200" selected>Unhealthy (151-200)</option>
+                    <option value="300">Very Unhealthy (201-300)</option>
+                    <option value="500">Hazardous (301-500)</option>
+                </select>
+                <button id="add-notification">Add Notification</button>
+            </div>
+            <div class="notification-list" id="notification-list">
+                <!-- Notifications will be listed here -->
+            </div>
+        </div>
+    </div>
     <div class="bottom-bar">
         <div class="logo-container">
             <img src="favicon.png" class="logo" alt="BreathMap Logo">
@@ -286,19 +367,28 @@
         </div>
         <div>
             <button class="legend-button mr-2" id="toggle-legend">AQI Guide</button>
+            <button class="notifications-button mr-2" id="toggle-notifications">Alerts</button>
             <button class="about-button" onclick="location.href='about.html'">About</button>
         </div>
     </div>
+
     <script>
         let map, heat, markersLayer, cache = new Map();
         const loader = document.getElementById('loader');
         const searchInput = document.getElementById('search-input');
         const searchButton = document.getElementById('search-button');
         const legendCard = document.getElementById('legend-card');
+        const notificationsCard = document.getElementById('notifications-card');
         const toggleLegendButton = document.getElementById('toggle-legend');
+        const toggleNotificationsButton = document.getElementById('toggle-notifications');
         const locationButton = document.getElementById('location-button');
+        const addNotificationButton = document.getElementById('add-notification');
+        const notificationList = document.getElementById('notification-list');
         let searchMarker = null;
         let userLocationMarker = null;
+        let notificationMarkers = [];
+        let notificationCheckInterval = null;
+        let savedNotifications = JSON.parse(localStorage.getItem('aqiNotifications')) || [];
 
         function initializeMap(center) {
             map = L.map('map', {
@@ -428,6 +518,11 @@
             const reverseData = await fetchData(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
             const locationName = reverseData?.display_name || query;
 
+            // Update notification form with location data
+            document.getElementById('notification-name').value = locationName;
+            document.getElementById('notification-lat').value = lat;
+            document.getElementById('notification-lng').value = lon;
+
             const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${lat};${lon}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
             const aqi = parseInt(aqiData?.data?.aqi);
             const isValidAqi = !isNaN(aqi) && aqi >= 0;
@@ -453,6 +548,15 @@
             if (aqi <= 150) return "#ff9800";
             if (aqi <= 200) return "#ff5722";
             return "#d50000";
+        }
+
+        function getAqiLevel(aqi) {
+            if (aqi <= 50) return "(Good)";
+            if (aqi <= 100) return "(Moderate)";
+            if (aqi <= 150) return "(Unhealthy for Sensitive Groups)";
+            if (aqi <= 200) return "(Unhealthy)";
+            if (aqi <= 300) return "(Very Unhealthy)";
+            return "(Hazardous)";
         }
 
         async function locateUser() {
@@ -512,16 +616,170 @@
             }
         }
 
+        // Show AQI alert
+        function showAqiAlert(locationName, aqi, threshold) {
+            const message = `⚠ High AQI Alert! ${locationName} has AQI of ${aqi} (threshold: ${threshold}).`;
+
+            // Browser Notification
+            if (Notification.permission === "granted") {
+                new Notification("BreathMap AQI Alert", { 
+                    body: message, 
+                    icon: "favicon.png",
+                    requireInteraction: true
+                });
+            } else {
+                alert(message); // Fallback alert if notifications are blocked
+            }
+        }
+
+        // Save notifications to localStorage
+        function saveNotifications() {
+            localStorage.setItem('aqiNotifications', JSON.stringify(savedNotifications));
+        }
+
+        // Add a new notification
+        function addNotification(name, lat, lng, threshold) {
+            const id = Date.now().toString();
+            const notification = { id, name, lat, lng, threshold };
+            savedNotifications.push(notification);
+            saveNotifications();
+            renderNotifications();
+            startNotificationChecks();
+            addNotificationMarker(notification);
+        }
+
+        // Remove a notification
+        function removeNotification(id) {
+            savedNotifications = savedNotifications.filter(n => n.id !== id);
+            saveNotifications();
+            renderNotifications();
+            removeNotificationMarker(id);
+            
+            if (savedNotifications.length === 0) {
+                stopNotificationChecks();
+            }
+        }
+
+        // Render the list of notifications
+        function renderNotifications() {
+            notificationList.innerHTML = '';
+            
+            if (savedNotifications.length === 0) {
+                notificationList.innerHTML = '<p>No notifications set</p>';
+                return;
+            }
+            
+            savedNotifications.forEach(notification => {
+                const entry = document.createElement('div');
+                entry.className = 'notification-entry';
+                entry.innerHTML = `
+                    <span>${notification.name} (AQI > ${notification.threshold})</span>
+                    <span class="delete-notification" data-id="${notification.id}">✕</span>
+                `;
+                notificationList.appendChild(entry);
+            });
+            
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-notification').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    removeNotification(e.target.dataset.id);
+                });
+            });
+        }
+
+        // Add a marker for a notification
+        function addNotificationMarker(notification) {
+            const marker = L.marker([notification.lat, notification.lng], {
+                icon: L.divIcon({
+                    className: 'notification-marker',
+                    html: '🔔',
+                    iconSize: [24, 24]
+                })
+            }).bindPopup(`
+                <strong>AQI Notification</strong><br>
+                ${notification.name}<br>
+                Alert when AQI > ${notification.threshold}
+            `).addTo(map);
+            
+            notificationMarkers.push({ id: notification.id, marker });
+        }
+
+        // Remove a notification marker
+        function removeNotificationMarker(id) {
+            const index = notificationMarkers.findIndex(m => m.id === id);
+            if (index !== -1) {
+                map.removeLayer(notificationMarkers[index].marker);
+                notificationMarkers.splice(index, 1);
+            }
+        }
+
+        // Check all notifications for AQI alerts
+        async function checkNotifications() {
+            if (savedNotifications.length === 0) return;
+            
+            for (const notification of savedNotifications) {
+                try {
+                    const aqiData = await fetchData(`https://api.waqi.info/feed/geo:${notification.lat};${notification.lng}/?token=b4e61d40c7efcf81d2b8bb699d3138da26603d1e`);
+                    const aqi = parseInt(aqiData?.data?.aqi);
+                    
+                    if (!isNaN(aqi) && aqi > notification.threshold) {
+                        showAqiAlert(notification.name, aqi, notification.threshold);
+                    }
+                } catch (error) {
+                    console.error(`Failed to check AQI for ${notification.name}:`, error);
+                }
+            }
+        }
+
+        // Start periodic notification checks
+        function startNotificationChecks() {
+            if (notificationCheckInterval) return;
+            notificationCheckInterval = setInterval(checkNotifications, 300000); // Check every 5 minutes
+            checkNotifications(); // Also check immediately
+        }
+
+        // Stop periodic notification checks
+        function stopNotificationChecks() {
+            if (notificationCheckInterval) {
+                clearInterval(notificationCheckInterval);
+                notificationCheckInterval = null;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             initializeMap([20, 0]);
             updateMapData();
 
-            // Initialize legend as closed
+            // Initialize legend and notifications as closed
             legendCard.style.display = 'none';
+            notificationsCard.style.display = 'none';
+
+            // Request notification permission
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+
+            // Load saved notifications
+            renderNotifications();
+            savedNotifications.forEach(addNotificationMarker);
+            if (savedNotifications.length > 0) {
+                startNotificationChecks();
+            }
 
             // Toggle legend visibility
             toggleLegendButton.addEventListener('click', () => {
                 legendCard.style.display = legendCard.style.display === 'none' ? 'block' : 'none';
+                if (legendCard.style.display === 'block') {
+                    notificationsCard.style.display = 'none';
+                }
+            });
+
+            // Toggle notifications visibility
+            toggleNotificationsButton.addEventListener('click', () => {
+                notificationsCard.style.display = notificationsCard.style.display === 'none' ? 'block' : 'none';
+                if (notificationsCard.style.display === 'block') {
+                    legendCard.style.display = 'none';
+                }
             });
 
             searchButton.addEventListener('click', () => {
@@ -538,6 +796,26 @@
 
             // Add click handler for location button
             locationButton.addEventListener('click', locateUser);
+
+            // Add notification button handler
+            addNotificationButton.addEventListener('click', () => {
+                const name = document.getElementById('notification-name').value.trim();
+                const lat = parseFloat(document.getElementById('notification-lat').value);
+                const lng = parseFloat(document.getElementById('notification-lng').value);
+                const threshold = parseInt(document.getElementById('notification-threshold').value);
+                
+                if (!name || isNaN(lat) || isNaN(lng) || isNaN(threshold)) {
+                    alert('Please fill all fields with valid values');
+                    return;
+                }
+                
+                addNotification(name, lat, lng, threshold);
+                
+                // Clear form
+                document.getElementById('notification-name').value = '';
+                document.getElementById('notification-lat').value = '';
+                document.getElementById('notification-lng').value = '';
+            });
         });
     </script>
 </body>
