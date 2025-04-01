@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About - Live AQI Heatmap</title>
+    <title>About - BreathMap</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -11,50 +11,60 @@
             background-color: #121212;
             color: #ffffff;
             font-family: 'Roboto Mono', monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
-            text-align: center;
         }
-        .container {
-            max-width: 600px;
-        }
-        a {
+        .link {
             color: #4A90E2;
             text-decoration: none;
         }
-        a:hover {
+        .link:hover {
             text-decoration: underline;
         }
     </style>
 </head>
 <body>
-            <h3>About BreathMap</h3>
-            <p>
-                BreathMap is an interactive AQI (Air Quality Index) visualization tool that helps users monitor air quality around the world.
-                This website displays a live Air Quality Index (AQI) heatmap using data sourced from:<br>
-
-                <a href="https://api.openstreetmap.org" style="color:rgb(105, 105, 235);">API</a><br>
-<a href="https://www.openstreetmap.org" style="color:rgb(105, 105, 235);">OpenStreetMap</a><br>
-<a href="https://leafletjs.com" style="color:rgb(105, 105, 235);">LeafletJS</a><br>
-<a href="https://carto.com" style="color:rgb(105, 105, 235);">Carto</a><br>
-
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-md md:max-w-xl w-full mx-auto bg-gray-900 p-6 md:p-8 rounded-lg shadow-lg">
+            <h2 class="text-2xl md:text-3xl font-bold mb-6 text-center">About BreathMap</h2>
+            
+            <div class="space-y-4 text-sm md:text-base">
+                <p class="leading-relaxed">
+                    BreathMap is an interactive AQI (Air Quality Index) visualization tool that helps users monitor air quality around the world.
+                    This website displays a live Air Quality Index (AQI) heatmap using data sourced from:
+                </p>
                 
-Built using modern web technologies and designed with a minimalist approach for enhanced usability and visual appeal.
-            </p>
-            <p>
-                <strong>Developed by:</strong><br>
-                - SIYAN <br>
-                - SIVADEV<br>
-                - SOURAV<br>
-                - RONIN
-            </p>
-            <p>
-                The project utilizes data from the World Air Quality Index project and OpenStreetMap.
-            </p>
-        
+                <div class="flex flex-col space-y-2 my-4">
+                    <a href="https://api.openstreetmap.org" class="link">API</a>
+                    <a href="https://www.openstreetmap.org" class="link">OpenStreetMap</a>
+                    <a href="https://leafletjs.com" class="link">LeafletJS</a>
+                    <a href="https://carto.com" class="link">Carto</a>
+                </div>
+                
+                <p class="leading-relaxed">
+                    Built using modern web technologies and designed with a minimalist approach for enhanced usability and visual appeal.
+                </p>
+                
+                <div class="mt-6">
+                    <p class="font-bold mb-2">Developed by:</p>
+                    <ul class="list-inside space-y-1">
+                        <li>- SIYAN</li>
+                        <li>- SIVADEV</li>
+                        <li>- SOURAV</li>
+                        <li>- RONIN</li>
+                    </ul>
+                </div>
+                
+                <p class="mt-6 text-gray-400 text-sm italic">
+                    The project utilizes data from the World Air Quality Index project and OpenStreetMap.
+                </p>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <a href="index.html" class="inline-block px-5 py-2 bg-blue-700 text-white rounded hover:bg-blue-600 transition">
+                    Return to Map
+                </a>
+            </div>
+        </div>
     </div>
 </body>
 </html>
